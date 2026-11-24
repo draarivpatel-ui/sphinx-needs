@@ -303,6 +303,17 @@ Bug fixes
   and so is a part in ``xml`` and ``pseudoxml``. Stored parts, ``needs.json``, filters and links do not change.
   (:pr:`2577`)
 
+- 🐛 Three of the ways a page that builds with ``html`` failed or warned wrongly with ``text``, ``epub`` or the
+  other writers (:issue:`2560`): a ``:need:`` or ``:np:`` in a title ended the ``text`` build on the unknown
+  ``NeedRef`` or ``NeedPart`` node, which the copies Sphinx makes of the title for its tables of contents still
+  hold; ``text``, ``man`` and ``texinfo`` now get the same pass-through visitor ``latex`` already had. The
+  ``epub`` build ended on every other extension's html-only nodes (a ``graphviz`` or ``plantuml`` diagram among
+  them) because the one ``epub`` visitor sphinx-data-viewer registers stops Sphinx falling back to the ``html``
+  handlers for all the rest; the format's visitors are merged back in for the names missing them. And "Need part
+  not associated with a need" is now made where the role is written, when the page is read: once on every builder
+  (``epub`` resolved the page holding the toctree for every document and repeated it each time) and on every page,
+  including one holding no need, which the builders resolving one page at a time never reported.
+
 Internal changes
 ................
 

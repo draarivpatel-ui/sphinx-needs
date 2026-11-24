@@ -32,8 +32,8 @@ def test_doc_need_parts(test_app: Sphinx, snapshot_json):
     warning_records = build_warnings(app)
     # print(warnings)
     assert warning_records == [
-        "<srcdir>/index.rst:38: WARNING: Need 'OTHER_1' has unknown outgoing link 'SP_TOO_001.unknown_part' in field 'links' [needs.link_outgoing]",
         "<srcdir>/index.rst:26: WARNING: Need part not associated with a need. [needs.part]",
+        "<srcdir>/index.rst:38: WARNING: Need 'OTHER_1' has unknown outgoing link 'SP_TOO_001.unknown_part' in field 'links' [needs.link_outgoing]",
         "<srcdir>/index.rst:36: WARNING: linked need part SP_TOO_001.unknown_part not found [needs.link_ref]",
     ]
 
@@ -621,8 +621,7 @@ PART_PAGE_FINDINGS = [
 
 #: what a builder reports beside them on this page, as it does without the parts:
 #: ``man`` cannot span a cell of a need's table, ``epub`` packs no file of a type it
-#: does not know and resolves the page more than once, reporting the outer role again
-#: each time
+#: does not know
 #: Sphinx names the type of a warning of its own, or of docutils, from 8.0
 #: (``show_warning_types``)
 _EPUB_FILES_TYPE = " [epub.unknown_project_files]" if version_info >= (8, 0) else ""
@@ -634,9 +633,6 @@ PART_PAGE_OTHER_WARNINGS = {
     ]
     * 2,
     "epub": [
-        PART_PAGE_FINDINGS[1],
-        PART_PAGE_FINDINGS[1],
-        PART_PAGE_FINDINGS[1],
         f"WARNING: unknown mimetype for permalink.html, ignoring{_EPUB_FILES_TYPE}",
         f"WARNING: unknown mimetype for schema_violations.json, ignoring{_EPUB_FILES_TYPE}",
     ],

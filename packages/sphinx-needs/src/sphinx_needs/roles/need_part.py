@@ -119,22 +119,22 @@ class NeedPartRole(SphinxRole):
         return [part], []
 
 
-def process_need_part(
-    app: Sphinx,
-    doctree: nodes.document,
-    fromdocname: str,
-    found_nodes: list[nodes.Element],
-) -> None:
-    # note this is called after needs have been processed and parts collected.
-    for node in found_nodes:
-        assert isinstance(node, NeedPart), "Expected NeedPart node"
-        if node.need_id is None:
-            log_warning(
-                LOGGER,
-                "Need part not associated with a need.",
-                "part",
-                node,
-            )
+def warn_unassociated_parts(app: Sphinx, doctree: nodes.document) -> None:
+    """Report every part whose role is written outside a need's content.
+
+    Connected to ``doctree-read`` rather than run while a tree is resolved: the
+    finding belongs to the page the role is written on, so it is made once per
+    build and on every page -- including a page holding no need, which the
+    resolved-doctree handlers used to skip, and only once for builders resolving
+    the same page repeatedly (``epub`` reports the root page per document).
+    """
+    for node in find_parts(doctree):
+        log_warning(
+            LOGGER,
+            "Need part not associated with a need.",
+            "part",
+            node,
+        )
 
 
 #: The builder formats whose writer anchors a ``target`` node and no ``inline``'s ids:

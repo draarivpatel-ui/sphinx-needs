@@ -209,8 +209,8 @@ from sphinx_needs.roles.need_outgoing import NeedOutgoing, process_need_outgoing
 from sphinx_needs.roles.need_part import (
     NeedPart,
     NeedPartRole,
-    process_need_part,
     unwrap_need_parts,
+    warn_unassociated_parts,
 )
 from sphinx_needs.roles.need_ref import NeedRef, process_need_ref
 from sphinx_needs.roles.variant import VariantRole
@@ -269,7 +269,6 @@ NODE_TYPES: _NODE_TYPES_T = {
     Needsequence: process_needsequence,
     Needgantt: process_needgantt,
     Needuml: process_needuml,
-    NeedPart: process_need_part,
     NeedRef: process_need_ref,
     NeedIncoming: process_need_incoming,
     NeedOutgoing: process_need_outgoing,
@@ -359,18 +358,20 @@ def setup(app: Sphinx) -> dict[str, Any]:
     app.add_node(Needextend)
     app.add_node(Needuml)
     app.add_node(List2Need)
-    _add_html_node(
-        app,
-        NeedPart,
-        (visitor_dummy, visitor_dummy),
-        latex=(visitor_dummy, visitor_dummy),
-    )
-    _add_html_node(
-        app,
-        NeedRef,
-        (visitor_dummy, visitor_dummy),
-        latex=(visitor_dummy, visitor_dummy),
-    )
+    # The two inline role nodes may reach a writer inside the copies Sphinx makes
+    # of a title for its tables of contents, which `unwrap_need_parts` and the
+    # `need` post-processing do not cover; every builder format therefore gets a
+    # visitor keeping their children, as html and epub already do.
+    for node in (NeedPart, NeedRef):
+        _add_html_node(
+            app,
+            node,
+            (visitor_dummy, visitor_dummy),
+            latex=(visitor_dummy, visitor_dummy),
+            text=(visitor_dummy, visitor_dummy),
+            man=(visitor_dummy, visitor_dummy),
+            texinfo=(visitor_dummy, visitor_dummy),
+        )
 
     ########################################################################
     # DIRECTIVES
@@ -485,6 +486,7 @@ def setup(app: Sphinx) -> dict[str, Any]:
     app.connect("env-purge-doc", purge_needs)
 
     app.connect("doctree-read", analyse_need_locations)
+    app.connect("doctree-read", warn_unassociated_parts)
 
     app.connect("env-merge-info", merge_data)
 
@@ -521,6 +523,13 @@ def setup(app: Sphinx) -> dict[str, Any]:
 
     app.connect("write-started", process_schemas)
     app.connect("write-started", ensure_post_process_needs_data)
+
+    # Restore the builder-format fallback for node visitors that Sphinx only
+    # applies while the builder's own name holds no handlers at all:
+    # sphinx-data-viewer (loaded above) registers an ``epub`` visitor, so
+    # ``epub`` would otherwise meet every html-only node of every other
+    # extension as an unknown node (#2560).
+    app.connect("builder-inited", restore_format_handlers)
 
     app.connect("build-finished", process_warnings)
     app.connect("build-finished", build_needs_json)
@@ -1650,6 +1659,27 @@ def _add_html_node(
         takes them.
     """
     app.add_node(node, override=False, html=html, epub=html, **others)
+
+
+def restore_format_handlers(app: Sphinx) -> None:
+    """Give the active builder the visitor pairs of its format for every node
+    it has none of its own for.
+
+    ``SphinxComponentRegistry.create_translator`` falls back from the builder's
+    name to its format only while the name keys no handler table: one ``epub``
+    visitor registered by any extension (sphinx-data-viewer, which sphinx-needs
+    loads, registers one) leaves every html-only node of every other extension
+    without a visitor on ``epub``. Handlers a node holds under the builder's
+    name stay what they are; the format's pairs fill in only the names missing.
+    Connected to ``builder-inited``, after every extension's ``setup`` has run.
+    """
+    builder = app.builder
+    handlers = app.registry.translation_handlers
+    named = handlers.get(builder.name)
+    if named is None or builder.name == builder.format:
+        return
+    for node_name, pair in handlers.get(builder.format, {}).items():
+        named.setdefault(node_name, pair)
 
 
 def visitor_dummy(*_args: Any, **_kwargs: Any) -> None:
